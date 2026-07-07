@@ -1,0 +1,4 @@
+# Place TIC-80 PRO emscripten build output here:
+# - tic80.js
+# - tic80.wasm
+# - tic80.data

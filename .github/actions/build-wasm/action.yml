@@ -1,0 +1,30 @@
+name: Build TIC-80 WASM
+description: Build patched TIC-80 PRO WASM via Docker and export artifacts
+
+inputs:
+  output-dir:
+    description: Directory to export WASM artifacts into
+    required: false
+    default: public/tic80
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build WASM image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: docker/tic80.Dockerfile
+        tags: tic80-web-editor-wasm
+        load: true
+        cache-from: type=gha,scope=tic80-wasm
+        cache-to: type=gha,mode=max,scope=tic80-wasm
+
+    - name: Export WASM artifacts
+      shell: bash
+      run: |
+        mkdir -p "${{ inputs.output-dir }}"
+        docker run --rm -v "$PWD/${{ inputs.output-dir }}:/out" tic80-web-editor-wasm
