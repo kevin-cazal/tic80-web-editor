@@ -23,19 +23,44 @@ patch_tic80_js() {
 
   python3 - "$js" <<'PY'
 import pathlib
+import re
 import sys
 
 path = pathlib.Path(sys.argv[1])
 text = path.read_text()
-old = "return UTF8Decoder.decode(heapOrArray.subarray(idx,endPtr))"
-new = "return UTF8Decoder.decode(heapOrArray.slice(idx,endPtr))"
-if old in text:
-    path.write_text(text.replace(old, new))
-    print("Patched tic80.js: TextDecoder resizable-buffer fix")
-elif "heapOrArray.slice(idx,endPtr)" in text:
-    print("tic80.js already patched for resizable buffers")
+
+# ALLOW_MEMORY_GROWTH backs the WASM heap with a resizable ArrayBuffer, which
+# Chrome/Firefox/Safari reject in TextDecoder.decode(). Emscripten no longer
+# supports TEXTDECODER=0, so we rewrite the generated decode calls to copy the
+# bytes into a fresh (non-resizable) buffer via .slice() before decoding.
+# Matches e.g. `UTF8Decoder.decode(heapOrArray.subarray(idx,endPtr))`.
+pattern = re.compile(r"(\.decode\(\s*[A-Za-z_$][\w$]*)\.subarray\(")
+count = 0
+
+def repl(m):
+    global count
+    count += 1
+    return m.group(1) + ".slice("
+
+patched = pattern.sub(repl, text)
+
+# Detect any remaining risky decode-on-heap calls we failed to rewrite so CI
+# fails loudly instead of shipping a broken build.
+remaining = re.search(r"\.decode\(\s*[A-Za-z_$][\w$]*\.subarray\(", patched)
+
+if count:
+    path.write_text(patched)
+    print(f"Patched tic80.js: TextDecoder resizable-buffer fix ({count} call(s) subarray -> slice)")
+elif "TextDecoder" not in text and "UTF8Decoder" not in text:
+    print("tic80.js: no TextDecoder usage found (nothing to patch)")
 else:
-    print("tic80.js: no TextDecoder subarray pattern (TEXTDECODER=0 or unknown layout)")
+    print("tic80.js: no `.decode(x.subarray(` pattern found; assuming already safe")
+
+if remaining:
+    raise SystemExit(
+        "ERROR: tic80.js still contains a TextDecoder.decode() on a heap subarray "
+        "after patching. Update patch_tic80_js in docker/export-tic80.sh."
+    )
 PY
 }
 
