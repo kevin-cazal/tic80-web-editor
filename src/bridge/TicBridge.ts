@@ -11,6 +11,7 @@ export const TicEmbedReason = {
   Saved: 2,
   Updated: 3,
   EditRequested: 4,
+  StudioRequested: 5,
 } as const;
 
 export type TicEmbedReason = (typeof TicEmbedReason)[keyof typeof TicEmbedReason];
@@ -60,6 +61,7 @@ function withCacheBust(url: string): string {
 
 const WASM_SCRIPT_URL = withCacheBust(`${TIC80_BASE_URL}tic80.js`);
 const SYNC_DEBOUNCE_MS = 500;
+const RESOURCE_SYNC_DEBOUNCE_MS = 200;
 const BOOT_TIMEOUT_MS = 60_000;
 
 function sleep(ms: number): Promise<void> {
@@ -72,6 +74,7 @@ export class TicBridge {
   private scriptLanguage = 'lua';
   private workspaceName = 'workspace.lua';
   private syncTimer: ReturnType<typeof setTimeout> | null = null;
+  private resourceSyncTimer: ReturnType<typeof setTimeout> | null = null;
   private canvas: HTMLCanvasElement | null = null;
   private moduleReady = false;
   private cartLoaded = false;
@@ -86,6 +89,7 @@ export class TicBridge {
   private languageListeners = new Set<(language: string) => void>();
   private cartLoadedListeners = new Set<(loaded: boolean) => void>();
   private editListeners = new Set<() => void>();
+  private studioListeners = new Set<() => void>();
 
   async initialize(): Promise<void> {
     // Cart content comes from TIC-80 after boot via embed export API.
@@ -125,6 +129,11 @@ export class TicBridge {
   onEditRequested(listener: () => void): () => void {
     this.editListeners.add(listener);
     return () => this.editListeners.delete(listener);
+  }
+
+  onStudioRequested(listener: () => void): () => void {
+    this.studioListeners.add(listener);
+    return () => this.studioListeners.delete(listener);
   }
 
   async checkWasmAvailable(): Promise<boolean> {
@@ -213,6 +222,12 @@ export class TicBridge {
 
   private notifyEditListeners(): void {
     for (const listener of this.editListeners) {
+      listener();
+    }
+  }
+
+  private notifyStudioListeners(): void {
+    for (const listener of this.studioListeners) {
       listener();
     }
   }
@@ -336,6 +351,58 @@ export class TicBridge {
     }
   }
 
+  /**
+   * Pull only the resource sections (sprites/map/sfx/music/etc.) from TIC-80,
+   * keeping the code currently held from Monaco. Resource edits never change the
+   * code section, so this avoids clobbering un-synced Monaco keystrokes.
+   */
+  private pullResourcesFromEmbed(): boolean {
+    const mod = window.Module;
+    if (!mod?._tic80_cart_export || !mod._malloc || !mod._free) {
+      return false;
+    }
+
+    const lenPtr = mod._malloc(4);
+    try {
+      const textPtr = mod._tic80_cart_export(lenPtr);
+      if (!textPtr) {
+        return false;
+      }
+
+      const heapU32 = mod.HEAPU32 ?? (mod.HEAPU8 ? new Uint32Array(mod.HEAPU8.buffer) : undefined);
+      const byteLen = heapU32 ? heapU32[lenPtr >> 2] : 0;
+      let cartText: string;
+      if (mod.UTF8ToString) {
+        cartText = mod.UTF8ToString(textPtr);
+      } else if (byteLen > 0 && mod.HEAPU8) {
+        cartText = new TextDecoder().decode(mod.HEAPU8.slice(textPtr, textPtr + byteLen));
+      } else {
+        return false;
+      }
+
+      if (!cartText.trim()) {
+        return false;
+      }
+
+      const { resourceTail } = splitCart(cartText);
+      if (resourceTail === this.resourceTail) {
+        return false;
+      }
+
+      this.syncingFromTic = true;
+      try {
+        this.resourceTail = resourceTail;
+        this.notifyCodeListeners();
+      } finally {
+        this.syncingFromTic = false;
+      }
+
+      return true;
+    } finally {
+      mod._free(lenPtr);
+    }
+  }
+
   private async pullCartWithRetry(attempts = 12, delayMs = 250): Promise<boolean> {
     for (let attempt = 0; attempt < attempts; attempt++) {
       if (this.pullCartFromEmbed()) {
@@ -380,6 +447,11 @@ export class TicBridge {
   }
 
   private async handleCartChanged(reason: number): Promise<void> {
+    if (reason === TicEmbedReason.StudioRequested) {
+      this.notifyStudioListeners();
+      return;
+    }
+
     if (this.syncingFromMonaco) {
       return;
     }
@@ -390,7 +462,21 @@ export class TicBridge {
       return;
     }
 
-    await sleep(reason === TicEmbedReason.Updated ? 80 : 0);
+    if (reason === TicEmbedReason.Updated) {
+      // Coalesce frequent resource-edit notifications (e.g. waveform drags).
+      if (this.resourceSyncTimer) {
+        clearTimeout(this.resourceSyncTimer);
+      }
+      this.resourceSyncTimer = setTimeout(() => {
+        this.resourceSyncTimer = null;
+        if (!this.syncingFromMonaco) {
+          this.pullResourcesFromEmbed();
+        }
+      }, RESOURCE_SYNC_DEBOUNCE_MS);
+      return;
+    }
+
+    await sleep(0);
     this.pullCartFromEmbed();
   }
 

@@ -212,6 +212,38 @@ if "TIC80_EMBED_TOOLBAR" not in studio_c:
     else:
         raise SystemExit("Could not locate toolbar Icons/Tips in studio.c")
 
+names_old = """    static const char* Names[] =
+    {
+        "CODE EDITOR",
+        "SPRITE EDITOR",
+        "MAP EDITOR",
+        "SFX EDITOR",
+        "MUSIC EDITOR",
+    };"""
+names_new = """#if defined(TIC80_EMBED_API)
+    static const char* Names[] =
+    {
+        "SPRITE EDITOR",
+        "MAP EDITOR",
+        "SFX EDITOR",
+        "MUSIC EDITOR",
+    };
+#else
+    static const char* Names[] =
+    {
+        "CODE EDITOR",
+        "SPRITE EDITOR",
+        "MAP EDITOR",
+        "SFX EDITOR",
+        "MUSIC EDITOR",
+    };
+#endif /* TIC80_EMBED_NAMES */"""
+if "TIC80_EMBED_NAMES" not in studio_c:
+    if names_old in studio_c:
+        studio_c = studio_c.replace(names_old, names_new, 1)
+    else:
+        raise SystemExit("Could not locate toolbar Names[] in studio.c")
+
 studio_c_path.write_text(studio_c)
 
 # --- console.c ---
@@ -263,6 +295,57 @@ if "TIC80_EMBED_BOOT_DEMO" not in console_c:
     if boot_demo_old in console_c:
         console_c = console_c.replace(boot_demo_old, boot_demo_new, 1)
         console_c_path.write_text(console_c)
+
+# --- console.c: `studio` command opens the visual editors ---
+console_c = console_c_path.read_text()
+if "onStudioCommand" not in console_c:
+    console_c = console_c.replace(
+        "static void onEditCommand(Console* console)",
+        """static void onStudioCommand(Console* console)
+{
+    setStudioMode(console->studio, TIC_SPRITE_MODE);
+#if defined(TIC80_EMBED_API)
+    tic80_embed_notify(TIC80_EMBED_STUDIO_REQUESTED);
+#endif
+    commandDone(console);
+}
+
+static void onEditCommand(Console* console)""",
+        1,
+    )
+
+    new_console_c, n = re.subn(
+        r'(macro\("edit",\s*\\\s*\n\s*NULL,\s*\\\s*\n\s*"Open cart editors[^"]*",\s*\\\s*\n\s*NULL,\s*\\\s*\n\s*onEditCommand,\s*\\\s*\n\s*NULL,\s*\\\s*\n\s*NULL\)\s*\\\s*\n)',
+        r'\1 \\\n    macro("studio", \\\n        NULL, \\\n        "Open the visual editors (sprite, map, sfx, music).", \\\n        NULL, \\\n        onStudioCommand, \\\n        NULL, \\\n        NULL) \\\n',
+        console_c,
+        count=1,
+    )
+    if n == 0:
+        raise SystemExit("Could not locate edit command entry in console.c COMMANDS_LIST")
+    console_c = new_console_c
+    console_c_path.write_text(console_c)
+
+# --- ext/history.c: notify on committed resource edits ---
+history_c_path = src / "src/ext/history.c"
+history_c = history_c_path.read_text()
+if "embed_api.h" not in history_c:
+    history_c = history_c.replace(
+        '#include "history.h"',
+        '#include "history.h"\n\n#if defined(TIC80_EMBED_API)\n#include "system/sdl/embed_api.h"\n#endif',
+        1,
+    )
+if "TIC80_EMBED_HISTORY_NOTIFY" not in history_c:
+    new_history_c, n = re.subn(
+        r"(bool history_add\(History\* history\)\s*\{.*?memcpy\(history->state, history->data, history->size\);\s*\n\s*)return true;",
+        "\\1#if defined(TIC80_EMBED_API)\n    tic80_embed_notify(TIC80_EMBED_CART_UPDATED);\n#endif\n    /* TIC80_EMBED_HISTORY_NOTIFY */\n    return true;",
+        history_c,
+        count=1,
+        flags=re.DOTALL,
+    )
+    if n == 0:
+        raise SystemExit("Could not locate history_add return true in history.c")
+    history_c = new_history_c
+history_c_path.write_text(history_c)
 
 print("TIC-80 Web Editor embed API applied.")
 PY

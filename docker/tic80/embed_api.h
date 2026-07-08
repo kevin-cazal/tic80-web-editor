@@ -7,6 +7,7 @@ enum {
     TIC80_EMBED_CART_SAVED = 2,
     TIC80_EMBED_CART_UPDATED = 3,
     TIC80_EMBED_EDIT_REQUESTED = 4,
+    TIC80_EMBED_STUDIO_REQUESTED = 5,
 };
 
 void tic80_embed_set_studio(Studio* studio);

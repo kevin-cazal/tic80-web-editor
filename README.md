@@ -88,7 +88,8 @@ Monaco and the dockable layout work without WASM; the TIC-80 panel needs step 1.
 
 - **TIC-80 (left)**: Boots like [tic80.com](https://tic80.com/) — boot animation, then CLI with version and `hello! type help for help`. Default Hello World cart is in memory; type `run` to play it.
 - **Editor (right)**: Shows the **currently loaded** cart from TIC-80 (Lua, Python, etc.). Edits sync back via the embed API (debounced). Type `edit` in the TIC console to focus Monaco instead of the built-in code editor.
-- **Console commands**: `new python`, `load`, `save` update Monaco automatically. Resource editors (sprites, map, sfx) still live in TIC; returning to the console refreshes Monaco.
+- **Console commands**: `new python`, `load`, `save` update Monaco automatically. Type `studio` in the TIC console to open the visual editors (sprite/map/sfx/music) and bring the TIC-80 panel forward.
+- **Live resource sync**: Editing sprites, map, SFX, or music in TIC-80 updates Monaco's resource sections live (event-driven, debounced) without returning to the console; your Monaco code edits are preserved.
 - Click the panel tab’s maximize button to expand a pane; TIC-80 and Editor panes cannot be closed.
 
 ## Adding new panels
