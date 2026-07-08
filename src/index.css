@@ -98,6 +98,42 @@ body,
   touch-action: none;
 }
 
+.tic-toolbar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  opacity: 0.35;
+  transition: opacity 0.15s ease;
+}
+
+.tic-panel:hover .tic-toolbar {
+  opacity: 1;
+}
+
+.tic-export-button {
+  font-size: 0.72rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(14, 99, 156, 0.9);
+}
+
+.tic-export-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.tic-export-error {
+  font-size: 0.72rem;
+  color: #ff8080;
+  background: rgba(26, 28, 44, 0.9);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  max-width: 40ch;
+}
+
 .panel-tab-fullscreen {
   display: flex;
   align-items: center;

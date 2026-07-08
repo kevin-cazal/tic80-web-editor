@@ -90,6 +90,11 @@ Monaco and the dockable layout work without WASM; the TIC-80 panel needs step 1.
 - **Editor (right)**: Shows the **currently loaded** cart from TIC-80 (Lua, Python, etc.). Edits sync back via the embed API (debounced). Type `edit` in the TIC console to focus Monaco instead of the built-in code editor.
 - **Console commands**: `new python`, `load`, `save` update Monaco automatically. Type `studio` in the TIC console to open the visual editors (sprite/map/sfx/music) and bring the TIC-80 panel forward.
 - **Live resource sync**: Editing sprites, map, SFX, or music in TIC-80 updates Monaco's resource sections live (event-driven, debounced) without returning to the console; your Monaco code edits are preserved.
+- **HTML export**: `export html <name>` works self-hosted. TIC-80 fetches the player runtime from `/export/<version>/html`; we generate that ZIP (`index.html` + `tic80.js` + `tic80.wasm`) from our own WASM via `scripts/build-export-payload.mjs`, which runs automatically before `dev`/`build`. Run `get <name>.zip` to download the finished cartridge. Native exports (`linux`/`win`/`mac`/`rpi`) require per-platform player binaries and are not served by this self-hosted build.
+  - The exported game must be served over **HTTP** (e.g. `python3 -m http.server`), not opened via `file://` — browsers block WASM fetches from the `null` origin of `file://` URLs.
+  - The exported player boots with `--soft` (software renderer), matching the editor, because the GPU path uploads the framebuffer through a resizable WASM-heap view that browsers reject in WebGL.
+- **Standalone HTML export (offline, open-and-play)**: The **Export standalone HTML** button on the TIC-80 panel downloads a single self-contained `index.html` that runs the current cart by just opening the file — no web server needed. It inlines the WASM runtime and the cart (full-fidelity project text) so there are no runtime fetches, sidestepping the `file://` restriction above. The file is large (~12 MB, the base64-encoded WASM) and runs in software-render mode. Implemented entirely app-side in [src/bridge/standaloneExport.ts](src/bridge/standaloneExport.ts) — no WASM rebuild.
+  - If you rebuild the TIC-80 WASM from a different version, update `TIC80_EXPORT_VERSION` in `scripts/build-export-payload.mjs` to match the `GET /export/<version>/html` path shown in the browser console.
 - Click the panel tab’s maximize button to expand a pane; TIC-80 and Editor panes cannot be closed.
 
 ## Adding new panels
@@ -109,7 +114,7 @@ Use `useLayoutApi().openPanel('myPanel')` to open panels programmatically from f
 src/
   layout/          # panel registry, default layout, persistence
   components/      # EditorPanel, TicPanel
-  bridge/          # TicBridge (patched WASM embed API), cartFormat
+  bridge/          # TicBridge (patched WASM embed API), cartFormat, standaloneExport
   components/      # EditorPanel, TicPanel, EditBridgeHandler
   providers/       # AppServicesProvider (shared TicBridge)
   monaco/          # TIC-80 completion provider

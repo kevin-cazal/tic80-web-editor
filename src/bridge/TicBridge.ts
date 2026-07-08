@@ -5,6 +5,7 @@ import {
   splitCart,
   workspaceFilename,
 } from './cartFormat';
+import { buildStandaloneHtml } from './standaloneExport';
 
 export const TicEmbedReason = {
   Loaded: 1,
@@ -109,6 +110,38 @@ export class TicBridge {
 
   hasEmbedApi(): boolean {
     return this.embedAvailable;
+  }
+
+  /**
+   * Build a single self-contained index.html that plays the current cart when
+   * opened directly from disk (file://) - no server, no rebuild. Inlines the
+   * WASM, runtime, and current cart (full-fidelity project text).
+   */
+  async exportStandaloneHtml(): Promise<Blob> {
+    const projectText = this.getProjectContent();
+    if (!projectText.trim()) {
+      throw new Error('No cart loaded to export yet.');
+    }
+
+    const ext = this.getScriptExtFromEmbed();
+
+    const [tic80Js, wasmBytes] = await Promise.all([
+      fetch(withCacheBust(`${TIC80_BASE_URL}tic80.js`)).then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch tic80.js (${res.status})`);
+        }
+        return res.text();
+      }),
+      fetch(withCacheBust(`${TIC80_BASE_URL}tic80.wasm`)).then(async (res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch tic80.wasm (${res.status})`);
+        }
+        return new Uint8Array(await res.arrayBuffer());
+      }),
+    ]);
+
+    const html = buildStandaloneHtml({ projectText, ext, tic80Js, wasmBytes });
+    return new Blob([html], { type: 'text/html' });
   }
 
   onCodeChange(listener: (code: string) => void): () => void {

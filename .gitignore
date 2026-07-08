@@ -26,3 +26,6 @@ dist-ssr
 # TIC-80 WASM build artifacts (see README)
 public/tic80/*
 !public/tic80/.gitkeep
+
+# Generated HTML export payload (see scripts/build-export-payload.mjs)
+public/export/

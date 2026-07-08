@@ -30,35 +30,59 @@ path = pathlib.Path(sys.argv[1])
 text = path.read_text()
 
 # ALLOW_MEMORY_GROWTH backs the WASM heap with a resizable ArrayBuffer, which
-# Chrome/Firefox/Safari reject in TextDecoder.decode(). Emscripten no longer
-# supports TEXTDECODER=0, so we rewrite the generated decode calls to copy the
-# bytes into a fresh (non-resizable) buffer via .slice() before decoding.
-# Matches e.g. `UTF8Decoder.decode(heapOrArray.subarray(idx,endPtr))`.
-pattern = re.compile(r"(\.decode\(\s*[A-Za-z_$][\w$]*)\.subarray\(")
-count = 0
+# Chrome/Firefox/Safari reject in APIs like TextDecoder.decode() and the
+# Blob/File constructors. Emscripten no longer supports TEXTDECODER=0, so we
+# rewrite the generated calls to copy the bytes into a fresh (non-resizable)
+# buffer via .slice() before use.
 
-def repl(m):
-    global count
-    count += 1
+# 1) TextDecoder.decode(heapOrArray.subarray(idx,endPtr)) -> .slice(...)
+decode_pattern = re.compile(r"(\.decode\(\s*[A-Za-z_$][\w$]*)\.subarray\(")
+# 2) new Blob([HEAPU8.subarray(...)]) / new File([HEAP*.subarray(...)]) -> .slice(...)
+blob_pattern = re.compile(r"(new (?:Blob|File)\(\[\s*[A-Za-z_$][\w$]*)\.subarray\(")
+
+decode_count = 0
+blob_count = 0
+
+def decode_repl(m):
+    global decode_count
+    decode_count += 1
     return m.group(1) + ".slice("
 
-patched = pattern.sub(repl, text)
+def blob_repl(m):
+    global blob_count
+    blob_count += 1
+    return m.group(1) + ".slice("
 
-# Detect any remaining risky decode-on-heap calls we failed to rewrite so CI
+patched = decode_pattern.sub(decode_repl, text)
+patched = blob_pattern.sub(blob_repl, patched)
+
+# Detect any remaining risky heap-subarray sinks we failed to rewrite so CI
 # fails loudly instead of shipping a broken build.
-remaining = re.search(r"\.decode\(\s*[A-Za-z_$][\w$]*\.subarray\(", patched)
+remaining_decode = re.search(r"\.decode\(\s*[A-Za-z_$][\w$]*\.subarray\(", patched)
+remaining_blob = re.search(r"new (?:Blob|File)\(\[\s*[A-Za-z_$][\w$]*\.subarray\(", patched)
 
-if count:
+if decode_count or blob_count:
     path.write_text(patched)
-    print(f"Patched tic80.js: TextDecoder resizable-buffer fix ({count} call(s) subarray -> slice)")
-elif "TextDecoder" not in text and "UTF8Decoder" not in text:
-    print("tic80.js: no TextDecoder usage found (nothing to patch)")
+    if decode_count:
+        print(f"Patched tic80.js: TextDecoder resizable-buffer fix ({decode_count} call(s) subarray -> slice)")
+    if blob_count:
+        print(f"Patched tic80.js: Blob/File resizable-buffer fix ({blob_count} call(s) subarray -> slice)")
 else:
-    print("tic80.js: no `.decode(x.subarray(` pattern found; assuming already safe")
+    if "TextDecoder" not in text and "UTF8Decoder" not in text:
+        print("tic80.js: no TextDecoder usage found (nothing to patch)")
+    else:
+        print("tic80.js: no `.decode(x.subarray(` pattern found; assuming already safe")
+    print("tic80.js: no `new Blob/File([x.subarray(` pattern found; assuming already safe")
 
-if remaining:
+if remaining_decode:
     raise SystemExit(
         "ERROR: tic80.js still contains a TextDecoder.decode() on a heap subarray "
+        "after patching. Update patch_tic80_js in docker/export-tic80.sh."
+    )
+
+if remaining_blob:
+    raise SystemExit(
+        "ERROR: tic80.js still contains a Blob/File constructed from a heap subarray "
         "after patching. Update patch_tic80_js in docker/export-tic80.sh."
     )
 PY
