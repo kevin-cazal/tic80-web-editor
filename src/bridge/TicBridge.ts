@@ -310,10 +310,11 @@ export class TicBridge {
       const heapU32 = mod.HEAPU32 ?? (mod.HEAPU8 ? new Uint32Array(mod.HEAPU8.buffer) : undefined);
       const byteLen = heapU32 ? heapU32[lenPtr >> 2] : 0;
       let cartText: string;
-      if (byteLen > 0 && mod.HEAPU8) {
-        cartText = new TextDecoder().decode(mod.HEAPU8.subarray(textPtr, textPtr + byteLen));
-      } else if (mod.UTF8ToString) {
+      if (mod.UTF8ToString) {
         cartText = mod.UTF8ToString(textPtr);
+      } else if (byteLen > 0 && mod.HEAPU8) {
+        // slice() copies into a non-resizable buffer; TextDecoder rejects WASM heap views.
+        cartText = new TextDecoder().decode(mod.HEAPU8.slice(textPtr, textPtr + byteLen));
       } else {
         return false;
       }

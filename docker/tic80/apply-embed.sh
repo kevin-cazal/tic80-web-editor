@@ -54,7 +54,7 @@ if "target_compile_definitions(tic80 PRIVATE TIC80_EMBED_API=1)" not in cmake_te
     )
 
     replacement = f""" if(EMSCRIPTEN)
-  set(EM_LINK_FLAGS "-s WASM=1 -s USE_SDL=2 -s ALLOW_MEMORY_GROWTH=1 -s FETCH=1 --pre-js ${{CMAKE_SOURCE_DIR}}/build/html/prejs.js -lidbfs.js")
+  set(EM_LINK_FLAGS "-s WASM=1 -s USE_SDL=2 -s ALLOW_MEMORY_GROWTH=1 -s TEXTDECODER=0 -s FETCH=1 --pre-js ${{CMAKE_SOURCE_DIR}}/build/html/prejs.js -lidbfs.js")
   if(TIC80_EMBED_API)
    target_compile_definitions({target} PRIVATE TIC80_EMBED_API=1)
    set(EM_LINK_FLAGS "${{EM_LINK_FLAGS}}{export_suffix}")
