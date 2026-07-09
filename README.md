@@ -95,6 +95,7 @@ Monaco and the dockable layout work without WASM; the TIC-80 panel needs step 1.
   - The exported player boots with `--soft` (software renderer), matching the editor, because the GPU path uploads the framebuffer through a resizable WASM-heap view that browsers reject in WebGL.
 - **Standalone HTML export (offline, open-and-play)**: The **Export standalone HTML** button on the TIC-80 panel downloads a single self-contained `index.html` that runs the current cart by just opening the file — no web server needed. It inlines the WASM runtime and the cart (full-fidelity project text) so there are no runtime fetches, sidestepping the `file://` restriction above. The file is large (~12 MB, the base64-encoded WASM) and runs in software-render mode. Implemented entirely app-side in [src/bridge/standaloneExport.ts](src/bridge/standaloneExport.ts) — no WASM rebuild.
   - If you rebuild the TIC-80 WASM from a different version, update `TIC80_EXPORT_VERSION` in `scripts/build-export-payload.mjs` to match the `GET /export/<version>/html` path shown in the browser console.
+- **Editor helpers (off by default)**: Because this is a pedagogical tool, IDE-style aids in the code editor — auto-closing brackets/quotes, IntelliSense/suggestions, hover, parameter hints, and TIC-80 API snippet completions — are disabled by default so learners type everything themselves. Add `?helpers` (or `?helpers=1`) to the URL to turn them back on.
 - Click the panel tab’s maximize button to expand a pane; TIC-80 and Editor panes cannot be closed.
 
 ## Adding new panels

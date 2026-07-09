@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import type { IDockviewPanelProps } from 'dockview';
 import { useAppServices } from '../providers/AppServicesProvider';
 import { registerTicCompletions } from '../monaco/ticCompletions';
+import { buildEditorOptions, editorHelpersEnabled } from '../monaco/editorAssist';
 
 export function EditorPanel(_props: IDockviewPanelProps) {
   const { bridge, ready } = useAppServices();
@@ -11,6 +12,8 @@ export function EditorPanel(_props: IDockviewPanelProps) {
   const [language, setLanguage] = useState('lua');
   const [cartLoaded, setCartLoaded] = useState(false);
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
+  const helpersEnabled = useMemo(() => editorHelpersEnabled(), []);
+  const editorOptions = useMemo(() => buildEditorOptions(helpersEnabled), [helpersEnabled]);
 
   useEffect(() => {
     if (!ready) {
@@ -62,17 +65,11 @@ export function EditorPanel(_props: IDockviewPanelProps) {
             // bridge is the source of truth for the code content.
             bridge.syncCode(value ?? '');
           }}
-          beforeMount={registerTicCompletions}
+          beforeMount={helpersEnabled ? registerTicCompletions : undefined}
           onMount={(editor) => {
             editorRef.current = editor;
           }}
-          options={{
-            minimap: { enabled: false },
-            fontSize: 14,
-            automaticLayout: true,
-            scrollBeyondLastLine: false,
-            wordWrap: 'on',
-          }}
+          options={editorOptions}
         />
       )}
     </div>
