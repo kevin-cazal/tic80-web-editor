@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AppShell } from './App';
+import { AutosaveHandler } from './components/AutosaveHandler';
 import { EditBridgeHandler } from './components/EditBridgeHandler';
 import { LayoutProvider } from './layout/LayoutContext';
 import { AppServicesProvider } from './providers/AppServicesProvider';
@@ -12,6 +13,7 @@ createRoot(document.getElementById('root')!).render(
     <AppServicesProvider>
       <LayoutProvider>
         <EditBridgeHandler />
+        <AutosaveHandler />
         <AppShell />
       </LayoutProvider>
     </AppServicesProvider>

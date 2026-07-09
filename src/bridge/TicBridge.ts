@@ -7,6 +7,7 @@ import {
   workspaceFilename,
 } from './cartFormat';
 import { buildStandaloneHtml } from './standaloneExport';
+import { loadSavedCart } from './cartStorage';
 
 export const TicEmbedReason = {
   Loaded: 1,
@@ -670,5 +671,13 @@ export class TicBridge {
     this.moduleReady = true;
     window.TIC80_BOOTED = true;
     this.unlockAudio();
+
+    // Restore any autosaved cart on top of the freshly booted default, so an
+    // accidental reload keeps the user's code and resources. Runs after
+    // moduleReady so loadProjectText imports the cart into the runtime.
+    const saved = loadSavedCart();
+    if (saved && saved.text.trim()) {
+      this.loadProjectText(saved.text, saved.ext);
+    }
   }
 }
