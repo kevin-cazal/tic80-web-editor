@@ -347,5 +347,193 @@ if "TIC80_EMBED_HISTORY_NOTIFY" not in history_c:
     history_c = new_history_c
 history_c_path.write_text(history_c)
 
+# --- studio.c: Escape opens the in-game menu; disable Ctrl+Q quit ---
+studio_c = studio_c_path.read_text()
+
+if "TIC80_EMBED_ESC_MENU" not in studio_c:
+    # In the BUILD_EDITORS Escape handler, RUN/MENU modes only open the menu when
+    # the cart defines its own game-menu tag, otherwise they exit the game (which
+    # bounces focus back into the host editor). Make them behave like the web
+    # player build: Escape always opens/closes the in-game menu.
+    studio_c, n_menu = re.subn(
+        r"case TIC_MENU_MODE:\s*showGameMenu\(studio\)\s*\?\s*studio_menu_back\(studio->menu\)\s*:\s*setStudioMode\(studio,\s*studio->prevMode\s*==\s*TIC_RUN_MODE\s*\?\s*TIC_CONSOLE_MODE\s*:\s*studio->prevMode\);\s*break;",
+        "case TIC_MENU_MODE: studio_menu_back(studio->menu); break; /* TIC80_EMBED_ESC_MENU */",
+        studio_c,
+        count=1,
+    )
+    studio_c, n_run = re.subn(
+        r"case TIC_RUN_MODE:\s*showGameMenu\(studio\)\s*\?\s*gotoMenu\(studio\)\s*:\s*setStudioMode\(studio,\s*studio->prevMode\s*==\s*TIC_RUN_MODE\s*\?\s*TIC_CONSOLE_MODE\s*:\s*studio->prevMode\);\s*break;",
+        "case TIC_RUN_MODE: gotoMenu(studio); break; /* TIC80_EMBED_ESC_MENU */",
+        studio_c,
+        count=1,
+    )
+    if n_menu == 0 or n_run == 0:
+        raise SystemExit("Could not locate Escape RUN/MENU handling in studio.c")
+
+if "TIC80_EMBED_NO_CTRLQ" not in studio_c:
+    studio_c, n_ctrlq = re.subn(
+        r"[ \t]*if\(keyWasPressedOnce\(studio, tic_key_q\)\) studio_exit\(studio\);",
+        "#if defined(TIC80_EMBED_API)\n        if(false) {} /* TIC80_EMBED_NO_CTRLQ */\n#else\n        if(keyWasPressedOnce(studio, tic_key_q)) studio_exit(studio);\n#endif",
+        studio_c,
+        count=1,
+    )
+    if n_ctrlq == 0:
+        raise SystemExit("Could not locate Ctrl+Q handler in studio.c")
+
+studio_c_path.write_text(studio_c)
+
+# --- mainmenu.c: remove the "QUIT TIC-80" item (WASM build cannot relaunch) ---
+mainmenu_c_path = src / "src/studio/screens/mainmenu.c"
+mainmenu_c = mainmenu_c_path.read_text()
+if "TIC80_EMBED_NO_QUIT" not in mainmenu_c:
+    mainmenu_c, n_fn = re.subn(
+        r"(static void onExitStudio\(void\* data, s32 pos\)\s*\{\s*StudioMainMenu\* main = data;\s*exitStudio\(main->studio\);\s*\})",
+        r"#if !defined(TIC80_EMBED_API)\n\1\n#endif /* TIC80_EMBED_NO_QUIT */",
+        mainmenu_c,
+        count=1,
+    )
+    mainmenu_c, n_item = re.subn(
+        r'(\{"OPTIONS",\s*showOptionsMenu\},)\s*\{""\},\s*\{"QUIT TIC-80",\s*onExitStudio\},',
+        '\\1\n#if !defined(TIC80_EMBED_API)\n    {""},\n    {"QUIT TIC-80", onExitStudio},\n#endif /* TIC80_EMBED_NO_QUIT */',
+        mainmenu_c,
+        count=1,
+    )
+    if n_fn == 0 or n_item == 0:
+        raise SystemExit("Could not locate QUIT TIC-80 menu item in mainmenu.c")
+    mainmenu_c_path.write_text(mainmenu_c)
+
+# --- mainmenu.c: drop the "Press F1 to switch to editor" hint (no embedded editor) ---
+mainmenu_c = mainmenu_c_path.read_text()
+if "TIC80_EMBED_NO_F1_HINT" not in mainmenu_c:
+    mainmenu_c, n_hint = re.subn(
+        r'\{"CLOSE GAME",\s*onExitGame,\s*NULL,\s*"Press F1 to switch to editor"\},',
+        '#if defined(TIC80_EMBED_API)\n'
+        '    {"CLOSE GAME",  onExitGame},\n'
+        '#else\n'
+        '    {"CLOSE GAME",  onExitGame, NULL, "Press F1 to switch to editor"},\n'
+        '#endif /* TIC80_EMBED_NO_F1_HINT */',
+        mainmenu_c,
+        count=1,
+    )
+    if n_hint == 0:
+        raise SystemExit("Could not locate CLOSE GAME F1 hint in mainmenu.c")
+    mainmenu_c_path.write_text(mainmenu_c)
+
+# --- mainmenu.c: label the reset item "RESTART GAME" (clearer for players) ---
+mainmenu_c = mainmenu_c_path.read_text()
+if "TIC80_EMBED_RESTART_LABEL" not in mainmenu_c:
+    mainmenu_c, n_restart = re.subn(
+        r'\{"RESET GAME",\s*onResetGame\},',
+        '#if defined(TIC80_EMBED_API)\n'
+        '    {"RESTART GAME", onResetGame},\n'
+        '#else\n'
+        '    {"RESET GAME",  onResetGame},\n'
+        '#endif /* TIC80_EMBED_RESTART_LABEL */',
+        mainmenu_c,
+        count=1,
+    )
+    if n_restart == 0:
+        raise SystemExit("Could not locate RESET GAME menu item in mainmenu.c")
+    mainmenu_c_path.write_text(mainmenu_c)
+
+# --- mainmenu.c: add an "OPEN STUDIO" item (between CLOSE GAME and SURF) ---
+# Mirrors the `studio` console command: switch to a visual editor and let the
+# host app bring the TIC-80 panel forward via TIC80_EMBED_STUDIO_REQUESTED.
+mainmenu_c = mainmenu_c_path.read_text()
+if "TIC80_EMBED_OPEN_STUDIO" not in mainmenu_c:
+    mainmenu_c, n_inc = re.subn(
+        r'#include "mainmenu\.h"',
+        '#include "mainmenu.h"\n\n#if defined(TIC80_EMBED_API)\n#include "system/sdl/embed_api.h"\n#endif',
+        mainmenu_c,
+        count=1,
+    )
+    mainmenu_c, n_hdl = re.subn(
+        r'(static void onSurf\(void\* data, s32 pos\))',
+        '#if defined(TIC80_EMBED_API)\n'
+        'static void onOpenStudio(void* data, s32 pos)\n'
+        '{\n'
+        '    StudioMainMenu* main = data;\n'
+        '    setStudioMode(main->studio, TIC_SPRITE_MODE);\n'
+        '    tic80_embed_notify(TIC80_EMBED_STUDIO_REQUESTED);\n'
+        '}\n'
+        '#endif /* TIC80_EMBED_OPEN_STUDIO */\n\n'
+        '\\1',
+        mainmenu_c,
+        count=1,
+    )
+    mainmenu_c, n_enum = re.subn(
+        r'(#if defined\(BUILD_SURF\)\s*\n\s*MainMenu_Surf,)',
+        '#if defined(TIC80_EMBED_API)\n    MainMenu_OpenStudio,\n#endif\n\\1',
+        mainmenu_c,
+        count=1,
+    )
+    mainmenu_c, n_item = re.subn(
+        r'(#if defined\(BUILD_SURF\)\s*\n\s*\{"SURF",\s*onSurf\},)',
+        '#if defined(TIC80_EMBED_API)\n    {"OPEN STUDIO", onOpenStudio},\n#endif\n\\1',
+        mainmenu_c,
+        count=1,
+    )
+    if n_inc == 0 or n_hdl == 0 or n_enum == 0 or n_item == 0:
+        raise SystemExit("Could not add OPEN STUDIO menu item in mainmenu.c")
+    mainmenu_c_path.write_text(mainmenu_c)
+
+# --- mainmenu.c: keep RESUME/RESTART visible in the embed pause menu ---
+# The cart is injected via tic80_cart_import (console->rom.name stays empty), so
+# studio_is_cart_loaded() is false and mainMenuOffset() would skip the top items.
+# The pause menu is only reachable while a game runs, so always show them.
+mainmenu_c = mainmenu_c_path.read_text()
+if "TIC80_EMBED_MENU_OFFSET" not in mainmenu_c:
+    mainmenu_c, n_off = re.subn(
+        r'static inline s32 mainMenuOffset\(StudioMainMenu\* menu\)\s*\{\s*if \(menu->count > 0\) return 0;\s*if \(!studio_is_cart_loaded\(menu->studio\)\)\s*return 3;\s*return 1;\s*\}',
+        'static inline s32 mainMenuOffset(StudioMainMenu* menu)\n'
+        '{\n'
+        '#if defined(TIC80_EMBED_API)\n'
+        '    return menu->count > 0 ? 0 : 1; /* TIC80_EMBED_MENU_OFFSET */\n'
+        '#else\n'
+        '    if (menu->count > 0) return 0;\n\n'
+        '    if (!studio_is_cart_loaded(menu->studio))\n'
+        '        return 3;\n\n'
+        '    return 1;\n'
+        '#endif\n'
+        '}',
+        mainmenu_c,
+        count=1,
+    )
+    mainmenu_c, n_back = re.subn(
+        r'studio_menu_init\(main->menu, MainMenu \+ offset, COUNT_OF\(MainMenu\) - offset, 0, 0, studio_is_cart_loaded\(main->studio\) \? onResumeGame : NULL, main\);',
+        '#if defined(TIC80_EMBED_API)\n'
+        '    studio_menu_init(main->menu, MainMenu + offset, COUNT_OF(MainMenu) - offset, 0, 0, onResumeGame, main);\n'
+        '#else\n'
+        '    studio_menu_init(main->menu, MainMenu + offset, COUNT_OF(MainMenu) - offset, 0, 0, studio_is_cart_loaded(main->studio) ? onResumeGame : NULL, main);\n'
+        '#endif',
+        mainmenu_c,
+        count=1,
+    )
+    if n_off == 0 or n_back == 0:
+        raise SystemExit("Could not patch mainMenuOffset in mainmenu.c")
+    mainmenu_c_path.write_text(mainmenu_c)
+
+# --- console.c: remove the exit/quit console command ---
+console_c = console_c_path.read_text()
+if "TIC80_EMBED_NO_EXIT_CMD" not in console_c:
+    console_c, n_fn = re.subn(
+        r"(static void onExitCommand\(Console\* console\)\s*\{\s*exitStudio\(console->studio\);\s*commandDone\(console\);\s*\})",
+        r"#if !defined(TIC80_EMBED_API)\n\1\n#endif /* TIC80_EMBED_NO_EXIT_CMD */",
+        console_c,
+        count=1,
+    )
+    # The command lives inside the \-continued COMMANDS_LIST macro, where a C
+    # preprocessor #if is illegal, so drop the entry (and its blank continuation)
+    # outright.
+    console_c, n_cmd = re.subn(
+        r'[ \t]*macro\("exit",[ \t]*\\\n[ \t]*"quit",[ \t]*\\\n[ \t]*"Exit the application \(Hotkey: CTRL\+Q\)\.",[ \t]*\\\n[ \t]*NULL,[ \t]*\\\n[ \t]*onExitCommand,[ \t]*\\\n[ \t]*NULL,[ \t]*\\\n[ \t]*NULL\)[ \t]*\\\n[ \t]*\\\n',
+        "",
+        console_c,
+        count=1,
+    )
+    if n_fn == 0 or n_cmd == 0:
+        raise SystemExit("Could not locate exit/quit command in console.c")
+    console_c_path.write_text(console_c)
+
 print("TIC-80 Web Editor embed API applied.")
 PY

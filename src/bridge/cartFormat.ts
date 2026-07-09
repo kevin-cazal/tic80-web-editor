@@ -41,6 +41,29 @@ export function parseScriptLanguage(cartText: string): string {
   return match ? match[1].toLowerCase() : 'lua';
 }
 
+// Metadata headers use the script language's line-comment token, so accept
+// Lua (--), C-style (//), shell/Python (#) and Lisp/Fennel (;) markers.
+const SCRIPT_TAG_ANY = /(?:--|\/\/|#|;+)\s*script:\s*(\w+)/i;
+const TITLE_TAG_ANY = /(?:--|\/\/|#|;+)\s*title:\s*(.+)/i;
+
+export function parseScriptLanguageAny(cartText: string): string {
+  const match = cartText.match(SCRIPT_TAG_ANY);
+  return match ? match[1].toLowerCase() : 'lua';
+}
+
+export function parseCartTitle(cartText: string): string {
+  const match = cartText.match(TITLE_TAG_ANY);
+  return match ? match[1].trim() : '';
+}
+
+export function sanitizeFilename(name: string, fallback = 'cart'): string {
+  const cleaned = name
+    .trim()
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/^[._]+|[._]+$/g, '');
+  return cleaned || fallback;
+}
+
 const EXT_TO_MONACO: Record<string, string> = {
   lua: 'lua',
   py: 'python',

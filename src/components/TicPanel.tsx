@@ -7,8 +7,6 @@ export function TicPanel(_props: IDockviewPanelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<'click' | 'booting' | 'ready' | 'missing' | 'error'>('click');
   const [error, setError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,43 +62,8 @@ export function TicPanel(_props: IDockviewPanelProps) {
     }
   };
 
-  const exportStandalone = async () => {
-    setExporting(true);
-    setExportError(null);
-    try {
-      const blob = await bridge.exportStandaloneHtml();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = 'tic80-game.html';
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setExportError(err instanceof Error ? err.message : 'Export failed');
-    } finally {
-      setExporting(false);
-    }
-  };
-
   return (
     <div className="panel-fill tic-panel" onPointerDown={focusCanvas}>
-      {status === 'ready' && (
-        <div className="tic-toolbar">
-          <button
-            type="button"
-            className="tic-export-button"
-            onClick={exportStandalone}
-            disabled={exporting}
-            title="Download a single self-contained HTML file that runs this cart offline (open it directly, no server needed)"
-          >
-            {exporting ? 'Exporting…' : 'Export standalone HTML'}
-          </button>
-          {exportError && <span className="tic-export-error">{exportError}</span>}
-        </div>
-      )}
-
       {status === 'missing' && (
         <div className="panel-message tic-overlay">
           <h3>TIC-80 WASM not found</h3>

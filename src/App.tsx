@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { DockviewReact, type DockviewReadyEvent, type SerializedDockview } from 'dockview-react';
 import 'dockview/dist/styles/dockview.css';
 import { applyDefaultLayout, openPanel } from './layout/layoutUtils';
+import { Toolbar } from './components/Toolbar';
 import { PanelTab } from './layout/PanelTab';
 import { useLayoutApi } from './layout/LayoutContext';
 import { dockviewComponents } from './layout/panelRegistry';
@@ -74,6 +75,7 @@ export function AppShell() {
 
   return (
     <div className="app-shell dockview-theme-dark">
+      <Toolbar />
       <DockviewReact
         className="dockview-host"
         components={dockviewComponents}

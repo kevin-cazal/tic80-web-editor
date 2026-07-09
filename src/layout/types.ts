@@ -21,5 +21,5 @@ export interface DefaultPanelPlacement {
   initialHeight?: number;
 }
 
-export const LAYOUT_VERSION = 2;
+export const LAYOUT_VERSION = 4;
 export const LAYOUT_STORAGE_KEY = 'tic80-web-editor-layout';

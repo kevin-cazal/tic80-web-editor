@@ -26,11 +26,14 @@ body,
 .app-shell {
   width: 100%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .dockview-host {
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  height: 100%;
 }
 
 .panel-fill {
@@ -98,40 +101,44 @@ body,
   touch-action: none;
 }
 
-.tic-toolbar {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  z-index: 3;
+.app-toolbar {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  opacity: 0.35;
-  transition: opacity 0.15s ease;
+  height: 40px;
+  padding: 0 0.6rem;
+  background: #252526;
+  border-bottom: 1px solid #1a1a1a;
 }
 
-.tic-panel:hover .tic-toolbar {
-  opacity: 1;
+.app-toolbar button {
+  font-size: 0.8rem;
+  padding: 0.3rem 0.7rem;
 }
 
-.tic-export-button {
-  font-size: 0.72rem;
-  padding: 0.25rem 0.5rem;
-  background: rgba(14, 99, 156, 0.9);
-}
-
-.tic-export-button:disabled {
-  opacity: 0.6;
+.app-toolbar button:disabled {
+  opacity: 0.5;
   cursor: default;
+  background: #3a3a3a;
 }
 
-.tic-export-error {
+.app-toolbar-hint {
+  font-size: 0.72rem;
+  color: #888;
+}
+
+.app-toolbar-error {
   font-size: 0.72rem;
   color: #ff8080;
-  background: rgba(26, 28, 44, 0.9);
+  background: rgba(255, 128, 128, 0.1);
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
   max-width: 40ch;
+}
+
+.app-toolbar-file {
+  display: none;
 }
 
 .panel-tab-fullscreen {

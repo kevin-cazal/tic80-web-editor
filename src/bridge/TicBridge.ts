@@ -1,6 +1,7 @@
 import {
   joinCart,
   parseScriptLanguage,
+  parseScriptLanguageAny,
   scriptExtToMonacoLanguage,
   splitCart,
   workspaceFilename,
@@ -110,6 +111,38 @@ export class TicBridge {
 
   hasEmbedApi(): boolean {
     return this.embedAvailable;
+  }
+
+  /** Current script extension (e.g. "lua", "js", "py"), authoritative once booted. */
+  getScriptExtension(): string {
+    return this.getScriptExtFromEmbed();
+  }
+
+  /**
+   * Load a full project text (code + embedded resource sections) into the editor
+   * and, if TIC-80 is running, push it into the runtime. Used by "Load Code".
+   */
+  loadProjectText(text: string, ext?: string): void {
+    const resolvedExt = (ext ?? parseScriptLanguageAny(text)).replace(/^\./, '').toLowerCase();
+
+    const { code, resourceTail } = splitCart(text);
+    this.code = code;
+    this.resourceTail = resourceTail;
+
+    this.workspaceName = workspaceFilename(resolvedExt);
+    const nextLanguage = scriptExtToMonacoLanguage(resolvedExt, text);
+    if (nextLanguage !== this.scriptLanguage) {
+      this.scriptLanguage = nextLanguage;
+      this.notifyLanguageListeners();
+    }
+
+    this.cartLoaded = true;
+    this.notifyCodeListeners();
+    this.notifyCartLoadedListeners();
+
+    if (this.moduleReady && this.embedAvailable) {
+      this.importCartToTic();
+    }
   }
 
   /**
