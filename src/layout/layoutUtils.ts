@@ -12,6 +12,9 @@ export function applyDefaultLayout(api: DockviewApi): void {
       title: def.title,
     };
 
+    if (def.renderer) {
+      options.renderer = def.renderer;
+    }
     if (placement.initialWidth) {
       options.initialWidth = placement.initialWidth;
     }
@@ -44,6 +47,9 @@ export function openPanel(api: DockviewApi, id: PanelId): void {
     title: def.title,
   };
 
+  if (def.renderer) {
+    options.renderer = def.renderer;
+  }
   if (placement?.initialWidth) {
     options.initialWidth = placement.initialWidth;
   }
