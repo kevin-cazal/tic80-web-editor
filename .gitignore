@@ -29,3 +29,6 @@ public/tic80/*
 
 # Generated HTML export payload (see scripts/build-export-payload.mjs)
 public/export/
+
+# Vendored REPL panel, downloaded by scripts/fetch-repl.mjs
+public/repl/

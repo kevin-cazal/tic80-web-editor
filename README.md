@@ -22,6 +22,19 @@ Open http://localhost:5173
 
 Monaco and the layout work immediately. The TIC-80 panel shows setup instructions until WASM assets are added (see below).
 
+## Lua REPL panel
+
+A third panel, under the code editor, holds a Lua REPL: type a line of Lua, press Enter, see the
+result. It is [repl_runtime](https://github.com/kevin-cazal/repl_runtime), vendored:
+
+- **Same Lua as TIC-80.** Lua 5.3.6 compiled to WebAssembly from the source TIC-80 embeds, with
+  the same `LUA_COMPAT_5_2` flag and the same standard libraries (no `io`, `os`, `utf8`).
+- **Client side only.** It runs in a Web Worker inside an iframe; there is no server.
+- **Pinned.** `npm run dev` and `npm run build` run `scripts/fetch-repl.mjs`, which downloads the
+  release named in `package.json` (`replRuntime.version`), checks its `sha256`, and extracts it
+  into `public/repl/` (gitignored). To upgrade, change both fields from the release's
+  `SHA256SUMS`. With no network, an existing `public/repl/` is kept.
+
 ## TIC-80 PRO WASM setup
 
 TIC-80 Web Editor requires a **patched** TIC-80 PRO emscripten build that exposes a small embed API for cart sync with Monaco. Stock upstream `tic80.wasm` will not work.

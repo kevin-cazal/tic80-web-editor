@@ -1,4 +1,5 @@
 import { EditorPanel } from '../components/EditorPanel';
+import { ReplPanel } from '../components/ReplPanel';
 import { TicPanel } from '../components/TicPanel';
 import type { PanelDefinition, PanelId } from './types';
 
@@ -10,6 +11,13 @@ export const panelRegistry: Record<PanelId, PanelDefinition> = {
   editor: {
     component: EditorPanel,
     title: 'Editor',
+  },
+  repl: {
+    component: ReplPanel,
+    title: 'Lua REPL',
+    // Keep the iframe mounted while its tab is hidden: unmounting it would restart Lua and lose
+    // every variable.
+    renderer: 'always',
   },
 };
 
