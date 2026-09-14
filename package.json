@@ -33,7 +33,7 @@
     "vite": "^8.1.1"
   },
   "replRuntime": {
-    "version": "v0.2.1",
-    "sha256": "46913c9063bf15380f074a695d21234997308371d17263edaab0357b04a74de4"
+    "version": "v0.3.1",
+    "sha256": "a055b2a1bf00e6b0c4f58f2d503ccff5101c435961c1b022e1cb2a040d637d56"
   }
 }

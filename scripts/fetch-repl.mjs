@@ -1,10 +1,11 @@
 // Vendors the Lua REPL panel: downloads a pinned release of kevin-cazal/repl_runtime (the Lua-only
-// archive, ~150 KB) into public/repl/, which Vite serves at <base>/repl/ in dev and copies into
+// archive, ~370 KB) into public/repl/, which Vite serves at <base>/repl/ in dev and copies into
 // dist/ on build.
 //
-// The REPL runs Lua 5.3.6 compiled to WebAssembly with the same flags and standard libraries as
-// TIC-80, entirely in the browser: no server involved. To upgrade, change `replRuntime` in
-// package.json (version and the archive's sha256 from the release's SHA256SUMS).
+// The REPL is an xterm.js terminal running Lua 5.3.6 compiled to WebAssembly with the same flags
+// and standard libraries as TIC-80, entirely in the browser: no server involved. To upgrade,
+// change `replRuntime` in package.json (version and the archive's sha256 from the release's
+// SHA256SUMS).
 
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
