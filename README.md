@@ -25,7 +25,7 @@ Monaco and the layout work immediately. The TIC-80 panel shows setup instruction
 ## Lua REPL panel
 
 A third panel, under the code editor, holds a Lua REPL: type a line of Lua, press Enter, see the
-result. It is [repl_runtime](https://github.com/kevin-cazal/repl_runtime), vendored:
+result. It is [repl_runtime](https://github.com/kevin-cazal/repl_runtime) (an xterm.js terminal), vendored:
 
 - **Same Lua as TIC-80.** Lua 5.3.6 compiled to WebAssembly from the source TIC-80 embeds, with
   the same `LUA_COMPAT_5_2` flag and the same standard libraries (no `io`, `os`, `utf8`).
